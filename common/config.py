@@ -15,17 +15,19 @@ class ConfigReaderForYml(object):
 
     def get_common_config(self) -> dict:
         result = self._config.get("common", {})
-        log.info(f"加载配置common: {result}")
+        log.info("已加载 common 配置（不输出配置内容，避免泄露密钥）")
         return result
 
     def get_query_task_config(self) -> list:
         result = self._config.get("query_task", [])
-        log.info(f"加载配置query_task: {result}")
+        enabled = [item.get("name", "<未命名>") for item in result if item.get("enable", False)]
+        log.info("已加载 %d 个查询任务，启用：%s（不记录 Cookie 等凭证）", len(result), enabled)
         return result
 
     def get_push_channel_config(self) -> list:
         result = self._config.get("push_channel", [])
-        log.info(f"加载配置push_channel: {result}")
+        enabled = [item.get("name", "<未命名>") for item in result if item.get("enable", False)]
+        log.info("已加载 %d 个推送通道，启用：%s（不记录 Token/Secret）", len(result), enabled)
         return result
 
 
