@@ -1,157 +1,146 @@
-# All-in-one Dynamic Push - 多合一动态检测与推送
+# AIO Dynamic Push（多平台动态与开播检测推送）
 
-[![Docker Image](https://img.shields.io/badge/DockerHub-nfew/aio--dynamic--push-367AC7?logo=Docker&logoColor=white)](https://hub.docker.com/r/nfew/aio-dynamic-push)
-[![Docker Pulls](https://img.shields.io/docker/pulls/nfew/aio-dynamic-push?logo=Docker&logoColor=white)](https://hub.docker.com/r/nfew/aio-dynamic-push)
-[![Docker Image Size](https://img.shields.io/docker/image-size/nfew/aio-dynamic-push/latest?logo=Docker&logoColor=white)](https://hub.docker.com/r/nfew/aio-dynamic-push)
-[![Python Version](https://img.shields.io/badge/python-3.9-blue?logo=Python&logoColor=white)](https://www.python.org/downloads)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![Actions Status](https://img.shields.io/github/actions/workflow/status/nfe-w/aio-dynamic-push/docker-image.yml?logo=Github)](https://github.com/nfe-w/aio-dynamic-push/actions)
-[![GitHub License](https://img.shields.io/github/license/nfe-w/aio-dynamic-push?logo=Github&logoColor=white)](https://github.com/nfe-w/aio-dynamic-push/blob/master/LICENSE)
-![GitHub Repo stars](https://img.shields.io/github/stars/nfe-w/aio-dynamic-push)
+> 一个通过定时查询多个内容平台的动态或直播状态，并把变化推送到指定通知渠道的 Python 工具。
 
-## 简介
+## 1. 项目简介
 
-一款整合多平台 `动态/直播开播提醒` 检测与推送的小工具，目前支持以下平台：
+支持的平台及能力以当前实现为准，项目 README 当前列出的平台包括：
+- B 站：动态检测、开播检测。
+- 微博：动态检测。
+- 小红书：动态检测。
+- 抖音：开播检测（动态检测可能因平台接口变化而不可用）。
+- 斗鱼：开播检测。
+- 虎牙：开播检测。
 
-- [x] B站
-- [x] 微博
-- [x] 小红书
-- [x] 抖音
-- [x] 斗鱼
-- [x] 虎牙
+通知渠道包括企业微信、钉钉、飞书、Telegram、QQ、Bark、Gotify、Webhook、邮件等。不同渠道的能力和所需凭证不同。
 
-## 工作流程
+## 2. 运行架构
 
-![](docs/image/aio-dynamic-push.png)
-
-## Docker（推荐的部署方式）
-
-[![](https://img.shields.io/badge/DockerHub-nfew/aio--dynamic--push-367AC7?style=flat-square&logo=Docker&logoColor=white)](https://hub.docker.com/r/nfew/aio-dynamic-push)
-
-```sh
-# 下载并修改配置文件 config.yml
-# 启动
-docker run -d -v [配置文件的绝对路径]/config.yml:/mnt/config.yml nfew/aio-dynamic-push:latest
+```text
+config.yml
+   |
+   v
+common/config.py 读取配置
+   |
+   +--> query_task/ 初始化平台查询任务
+   |
+   +--> push_channel/ 初始化推送通道
+                 |
+                 v
+        定时查询 -> 判断是否有新动态/开播
+                 |
+                 v
+        选择目标推送通道并发送消息
 ```
 
-## 配置文件 [config.yml](./config.yml) 说明
+### 核心目录
 
-(1)`common`下的参数
+| 路径 | 用途 |
+|---|---|
+| `main.py` | 程序入口、初始化任务和通道、运行调度循环 |
+| `common/config.py` | 读取 YAML 配置 |
+| `common/` | 通用配置、日志和辅助功能 |
+| `query_task/` | 各平台查询任务实现 |
+| `push_channel/` | 各类消息推送通道实现 |
+| `config.yml` | 本地实际配置文件，包含敏感凭证 |
+| `requirements.txt` / `pyproject.toml` | Python 依赖定义（按仓库实际文件安装） |
 
-- 项目的一些公共参数
+## 3. 安装和启动
 
-(2)`query_task`下的参数
+推荐使用 uv：
 
-- 支持配置多项不同的任务，并为不同的任务配置不同的推送通道
-
-| 任务类型 | type     | 动态检测 | 开播检测 |
-|------|----------|:----:|:----:|
-| B站   | bilibili |  ✅   |  ✅   |
-| 微博   | weibo    |  ✅   |  ❌   |
-| 小红书  | xhs      |  ✅   |  ❌   |
-| 抖音   | douyin   |  ❌   |  ✅   |
-| 斗鱼   | douyu    |  ❌   |  ✅   |
-| 虎牙   | huya     |  ❌   |  ✅   |
-
-(3)`push_channel`下的参数
-
-- 支持配置多种推送通道
-
-| 通道类型              | type             | 推送附带图片  | 说明                                                                                                          |
-|-------------------|------------------|:-------:|-------------------------------------------------------------------------------------------------------------|
-| Server酱_Turbo     | serverChan_turbo |    ✅    | 🙅‍♀️不推荐，不用安装app，但免费用户5次/天<br/>👉https://sct.ftqq.com                                                       |
-| Server酱_3         | serverChan_3     |    ✅    | 🤔需要安装app<br/>👉https://sc3.ft07.com/                                                                       |
-| 企业微信自建应用          | wecom_apps       |    ✅    | 😢新用户不再推荐，2022年6月20日之后新创建的应用，需要配置可信IP<br/>👉https://work.weixin.qq.com/wework_admin/frame#apps/createApiApp |
-| 企业微信消息推送(原"群机器人") | wecom_bot        |    ✅    | 🥳推荐，新建群聊添加自定义消息推送即可<br/>👉https://developer.work.weixin.qq.com/document/path/99110                         |
-| 钉钉群聊机器人           | dingtalk_bot     |    ✅    | 🥳推荐，新建群聊添加自定义机器人即可，自定义关键词使用"【"<br/>👉https://open.dingtalk.com/document/robots/custom-robot-access         |
-| 飞书自建应用            | feishu_apps      |    ✅    | 🤔可以使用个人版，创建应用，授予其机器人权限<br/>👉https://open.feishu.cn/app?lang=zh-CN                                         |
-| 飞书群聊机器人           | feishu_bot       | ❌(暂不支持) | 🤩推荐，新建群聊添加自定义机器人即可，自定义关键词使用"【"<br/>👉https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot     |
-| Telegram机器人       | telegram_bot     |    ✅    | 🪜需要自备网络环境<br/>👉https://core.telegram.org/bots                                                             |
-| QQ频道机器人           | qq_bot           |    ✅    | 😢需要自行创建机器人，并启用机器人在频道内发言的权限<br/>👉https://q.qq.com/#/app/create-bot                                         |
-| NapCatQQ          | napcat_qq        |    ✅    | 🐧好用，但需要自行部署 NapCatQQ<br/>👉https://github.com/NapNeko/NapCatQQ                                             |
-| Bark              | bark             |    ❌    | 🍎适合苹果系用户，十分轻量，但没法推送图片<br/>👉https://apps.apple.com/cn/app/id1403753865                                     |
-| Gotify            | gotify           |    ❌    | 🖥️适合自建服务器<br/>👉https://gotify.net                                                                         |
-| Webhook           | webhook          | ✅(POST) | ⚡️通用的方式，请求格式详见附录                                                                                            |
-| 电子邮件              | email            |    ✅    | 📧通用的方式                                                                                                     |
-
-## 本地运行方式
-
-1. （可选，推荐）安装 [uv](https://github.com/astral-sh/uv)
-
-   ```sh
-   # macOS / Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   
-   # Windows
-   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-
-2. 安装依赖
-
-   ```sh
-   # 使用 uv 安装依赖
-   uv sync --locked
-   
-   # 或：使用 pip 安装依赖
-   pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-   ```
-
-3. 修改配置文件 [config.yml](./config.yml)
-
-4. 启动项目
-
-   ```sh
-   nohup python3 -u main.py >& aio-dynamic-push.log &
-   ```
-
-## 开发说明
-
-推荐使用 [uv](https://github.com/astral-sh/uv) 运行
-
-- 新增查询任务：详见 `query_task/query_demo.py`
-- 新增推送通道：详见 `push_channel/demo.py`
-
-## 附录
-
-### Webhook 支持的请求格式
-
-#### GET 请求
-
-```http request
-GET https://xxx.api.com?title={{title}}&content={{content}}
+```bash
+uv sync --locked
 ```
 
-#### POST 请求
+也可以按仓库依赖文件使用 pip 安装。启动前先复制示例配置为本地 `config.yml`，填写任务和推送通道。
 
-```http request
-POST https://xxx.api.com
-Content-Type: application/json
-
-{
-  "query_task_config": {
-    "name": "任务名称",
-    "enable": true,
-    "type": "bilibili/weibo/xhs/douyin",
-    "intervals_second": 600,
-    "begin_time": "00:00",
-    "end_time": "23:59",
-    "target_push_name_list": [
-      "推送通道名称"
-    ],
-    "enable_living_check": false,
-    "enable_dynamic_check": true
-  },
-  "dynamic_raw_data": {
-    "key1": "value1",
-    "key2": "value2"
-  }
-}
+启动：
+```bash
+python main.py
 ```
 
-## 声明
+Docker 运行时，将宿主机的配置文件挂载到容器内的 `/mnt/config.yml`。请以仓库当前 Docker 镜像说明和实际入口为准。
 
-- 本仓库发布的`aio-dynamic-push`项目中涉及的任何脚本，仅用于测试和学习研究，禁止用于商业用途
-- `nfe-w` 对任何脚本问题概不负责，包括但不限于由任何脚本错误导致的任何损失或损害
-- 以任何方式查看此项目的人或直接或间接使用`aio-dynamic-push`项目的任何脚本的使用者都应仔细阅读此声明
-- `nfe-w` 保留随时更改或补充此免责声明的权利。一旦使用并复制了任何相关脚本或`aio-dynamic-push`项目，则视为已接受此免责声明
-- 本项目遵循`MIT LICENSE`协议，如果本声明与`MIT LICENSE`协议有冲突之处，以本声明为准
+## 4. 配置说明
+
+配置主要分为三组：
+
+### common
+全局配置，例如代理池和启动时是否发送推送通道测试消息。
+
+### query_task
+每个查询任务包含：
+- `name`：任务名称，必须便于识别。
+- `enable`：是否启用。
+- `type`：平台类型。
+- `intervals_second`：查询间隔，单位秒。
+- `begin_time` / `end_time`：允许查询的时间范围。
+- `target_push_name_list`：发生变化时使用哪些推送通道。
+- 平台专用的用户 ID、直播间 ID、Cookie 或签名服务地址。
+
+### push_channel
+每个推送通道包含：
+- `name`：通道名称，必须唯一。
+- `enable`：是否启用。
+- `type`：通道类型。
+- 该平台所需的 Token、Secret、Webhook、收件人等参数。
+
+## 5. 平台认证与凭证管理
+
+不同平台的认证方式并不统一：
+- Cookie：代表浏览器登录态，可能随平台策略或登录状态过期。
+- Bot Token / Access Token：用于调用消息平台 API。
+- App Secret：用于应用身份验证或换取访问令牌。
+- Webhook Key：通常包含在 Webhook 地址或请求参数中。
+- 签名服务地址：用于需要额外签名的接口调用。
+
+请遵守以下规则：
+1. 真实 `config.yml` 不要提交到 Git。
+2. 对外分享时使用无真实凭证的示例配置。
+3. 不要在日志中打印完整配置对象、Cookie、Token 或 Secret。
+4. 凭证曾出现在日志或仓库历史时，应立即轮换。
+5. 尽量使用最小权限的专用账号或机器人。
+6. 不要把私人主账号 Cookie 用于不必要的自动化任务。
+
+## 6. 查询调度流程
+
+1. 程序读取 YAML 配置。
+2. 初始化已启用的推送通道。
+3. 初始化已启用的查询任务。
+4. 为任务注册定时执行函数。
+5. 启动时先执行一次查询。
+6. 后续由调度循环按间隔执行。
+7. 查询任务识别到新动态或开播状态后，调用配置的推送通道。
+8. 日志记录任务执行状态，但不应记录秘密凭证。
+
+## 7. 常见问题
+
+**平台查询失败**
+- 检查平台 ID、Cookie 和任务类型。
+- 平台接口可能发生变化或限制请求频率。
+- 适当增加查询间隔。
+- 检查代理、网络和签名服务配置。
+
+**推送失败**
+- 检查目标推送通道是否启用。
+- 检查任务的 `target_push_name_list` 是否与通道名称一致。
+- 检查 Token、Secret、Webhook 和收件人。
+- 使用单独的测试消息验证通道。
+
+**配置读取失败**
+- 检查 YAML 缩进和字段类型。
+- 确认运行目录中存在配置文件。
+- 不要把真实凭证发到公开 Issue 中寻求帮助。
+
+## 8. 安全维护
+
+- 已经输出到日志的历史凭证需要轮换，修改日志代码不会自动清理旧日志。
+- 建议对配置日志做脱敏，只输出任务名、通道名、启用状态和执行结果。
+- 不要在容器镜像中烘焙真实配置。
+- 定期更新依赖并检查平台 API 变化。
+- 上线前使用测试账号和测试群验证。
+
+## 9. 许可证
+
+请以仓库中的 LICENSE 文件为准。
